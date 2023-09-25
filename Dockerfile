@@ -66,30 +66,15 @@ FROM clearlinux/os-core:latest
 COPY --from=builder /install_root /
 
     
-RUN rm /usr/lib64/libz.*; \
-    rm -f /usr/lib64/pkgconfig/zlib.pc; \
-    rm -f /usr/include/zlib.h; \
-    rm -f /usr/include/zconf.h; \
-    rm -f /usr/include/zlib_name_mangling.h  
-COPY --from=builder /usr/local/lib/libz.* /usr/lib64/
-COPY --from=builder /usr/local/lib/pkgconfig/zlib.pc /usr/lib64/pkgconfig/
-COPY --from=builder /usr/local/include/zlib.h /usr/include/
-COPY --from=builder /usr/local/include/zconf.h /usr/include/
-COPY --from=builder /usr/local/include/zlib_name_mangling.h /usr/include/
+RUN rm -f /usr/lib64/libz.* /usr/lib64/pkgconfig/zlib.pc /usr/include/zlib.h /usr/include/zconf.h /usr/include/zlib_name_mangling.h /usr/lib64/libmimalloc.* /usr/lib64/pkgconfig/mimalloc.pc; \
+    rm -rf /usr/lib64/mimalloc-* /usr/include/mimalloc-*
 
-RUN rm -f /usr/lib64/libmimalloc.*; \
-    rm -rf /usr/lib64/mimalloc-*; \
-    rm -f /usr/lib64/pkgconfig/mimalloc.pc; \
-    rm -rf /usr/include/mimalloc-*
-COPY --from=builder /usr/local/lib64/libmimalloc.* /usr/lib64/
-COPY --from=builder /usr/local/lib64/mimalloc-* /usr/lib64/
-COPY --from=builder /usr/local/lib64/pkgconfig/mimalloc.pc /usr/lib64/pkgconfig/
-COPY --from=builder /usr/local/include/mimalloc-* /usr/include/
+COPY --from=builder /usr/local/lib/libz.* /usr/local/lib64/libmimalloc.* /usr/local/lib64/mimalloc-* /usr/lib64/
+COPY --from=builder /usr/local/include/zlib.h /usr/local/include/zconf.h /usr/local/include/zlib_name_mangling.h /usr/local/include/mimalloc-* /usr/include/
+COPY --from=builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib64/pkgconfig/mimalloc.pc /usr/lib64/pkgconfig/
 
-ENV JAVA_HOME /opt/java/graalvm
-ENV PATH $JAVA_HOME/bin:$PATH
-
-ENV JAVA_VERSION jdk-21+35
+ENV JAVA_HOME=/opt/java/graalvm
+ENV PATH=$JAVA_HOME/bin:$PATH JAVA_VERSION=jdk-21+35LD_PRELOAD=usr/lib64/libmimalloc.so MIMALLOC_LARGE_OS_PAGES=1
 
 RUN set -eux; \
 	  curl -o /tmp/graalvm.tar.gz https://download.oracle.com/graalvm/21/latest/graalvm-jdk-21_linux-x64_bin.tar.gz; \
@@ -111,8 +96,6 @@ RUN set -eux; \
 # https://github.com/docker-library/openjdk/issues/212#issuecomment-420979840
 # https://openjdk.java.net/jeps/341
     java -Xshare:dump;
-
-ENV LD_PRELOAD=usr/lib64/libmimalloc.so MIMALLOC_LARGE_OS_PAGES=1
 
 RUN echo Verifying install ...; \
     fileEncoding="$(echo 'System.out.println(System.getProperty("file.encoding"))' | jshell -s -)"; [ "$fileEncoding" = 'UTF-8' ]; rm -rf ~/.java; \
