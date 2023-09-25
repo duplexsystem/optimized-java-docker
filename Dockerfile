@@ -50,7 +50,7 @@ RUN source /os-release && \
     mkdir /install_root \
     && swupd os-install -V ${VERSION_ID} \
     --path /install_root --statedir /swupd-state \
-    --bundles=os-core-update,libstdcpp,openssl,tzdata,fonts-basic,iproute2,sqlite,git,curl,sysadmin-basic,libX11client,wget --no-boot-update
+    --bundles=os-core-update,libstdcpp,openssl,tzdata,fonts-basic,iproute2,sqlite,git,curl,sysadmin-basic,libX11client --no-boot-update
     
 # For some Host OS configuration with redirect_dir on,
 # extra data are saved on the upper layer when the same
@@ -92,8 +92,8 @@ ENV PATH $JAVA_HOME/bin:$PATH
 ENV JAVA_VERSION jdk-21+35
 
 RUN set -eux; \
-	  wget -O /tmp/graalvm.tar.gz https://download.oracle.com/graalvm/21/latest/graalvm-jdk-21_linux-x64_bin.tar.gz; \
-	  wget -O /tmp/graalvm.tar.gz.sha256 https://download.oracle.com/graalvm/21/latest/graalvm-jdk-21_linux-x64_bin.tar.gz.sha256; \
+	  curl -o /tmp/graalvm.tar.gz https://download.oracle.com/graalvm/21/latest/graalvm-jdk-21_linux-x64_bin.tar.gz; \
+	  curl -o /tmp/graalvm.tar.gz.sha256 https://download.oracle.com/graalvm/21/latest/graalvm-jdk-21_linux-x64_bin.tar.gz.sha256; \
 	  ESUM=$(cat /tmp/graalvm.tar.gz.sha256); \
 	  echo "${ESUM} */tmp/graalvm.tar.gz" | sha256sum -c -; \
 	  mkdir -p "$JAVA_HOME"; \
