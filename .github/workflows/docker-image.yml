@@ -1,0 +1,23 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: ScribeMD/docker-cache@0.3.6
+    - name: Cache Docker images.
+      with:
+        key: docker-${{ runner.os }}-${{ hashFiles(paths) }}
+        
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag optimized-java-docker:$(date +%s)
