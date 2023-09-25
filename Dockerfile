@@ -22,8 +22,6 @@ RUN LOCATION=$(curl -s https://api.github.com/repos/zlib-ng/zlib-ng/releases/lat
 RUN cd /tmp/zlib-ng-zlib-ng-*; \
     ./configure --zlib-compat; \
     make -j$(nproc); make install
-    
-RUN cd /
 
 RUN LOCATION=$(curl -s https://api.github.com/repos/microsoft/mimalloc/tags | \
     grep -Eo '"tarball_url": "([^"]+)"' | \
@@ -46,11 +44,11 @@ COPY --from=clearlinux/os-core:latest /usr/lib/os-release /
 
 # Install additional content in a target directory
 # using the os version from the minimal base
-RUN source /os-release && \
-    mkdir /install_root \
-    && swupd os-install -V ${VERSION_ID} \
+RUN source /os-release; \
+    mkdir /install_root; \
+    swupd os-install -V ${VERSION_ID} \
     --path /install_root --statedir /swupd-state \
-    --bundles=os-core-update,libstdcpp,openssl,tzdata,fonts-basic,iproute2,sqlite,git,curl,sysadmin-basic,libX11client --no-boot-update
+    --bundles=os-core-update,libstdcpp,openssl,tzdata,fonts-basic,iproute2,sqlite,git,curl --no-boot-update
     
 # For some Host OS configuration with redirect_dir on,
 # extra data are saved on the upper layer when the same
