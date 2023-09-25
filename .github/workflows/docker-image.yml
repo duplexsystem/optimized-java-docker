@@ -20,7 +20,7 @@ jobs:
     - uses: ScribeMD/docker-cache@0.3.6
       name: Cache Docker images
       with:
-        key: docker-${{ runner.os }}-${{ hashFiles(paths) }}
+        key: docker-${{ runner.os }}
         
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag optimized-java-docker:$(date +%s)
