@@ -1,11 +1,12 @@
-FROM ubuntu:latest as builder
+FROM clearlinux:latest AS builder
 
-RUN apt-get update; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends locales binutils; \
-    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen; \
-    locale-gen en_US.UTF-8; \
-    DEBIAN_FRONTEND=noninteractive apt-get upgrade -y; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential tar curl
+ARG swupd_args
+# Move to latest Clear Linux release to ensure
+# that the swupd command line arguments are
+# correct
+RUN swupd update --no-boot-update $swupd_args
+
+RUN swupd bundle-add c-basic
 
 RUN LOCATION=$(curl -s https://api.github.com/repos/zlib-ng/zlib-ng/releases/latest \
     | grep "tarball_url" \
@@ -21,29 +22,72 @@ RUN LOCATION=$(curl -s https://api.github.com/repos/zlib-ng/zlib-ng/releases/lat
 RUN cd /tmp/zlib-ng-zlib-ng-*; \
     ./configure --zlib-compat; \
     make -j$(nproc); make install
+    
+RUN cd /
 
-FROM ubuntu:latest
+RUN LOCATION=$(curl -s https://api.github.com/repos/microsoft/mimalloc/tags | \
+    grep -Eo '"tarball_url": "([^"]+)"' | \
+    grep -v "win-m4" | \
+    head -n 1 | \
+    awk -F'"' '{print $4}'); \
+    curl -L -o /tmp/mimalloc.tar $LOCATION; \
+    mkdir -p /tmp/; \
+    tar --extract --file /tmp/mimalloc.tar --directory "/tmp/"
+
+RUN cd /tmp/microsoft-mimalloc-*; \
+    mkdir -p out/release; \
+    cd out/release; \
+    cmake ../..; \
+    make -j$(nproc); make install
+
+# Grab os-release info from the minimal base image so
+# that the new content matches the exact OS version
+COPY --from=clearlinux/os-core:latest /usr/lib/os-release /
+
+# Install additional content in a target directory
+# using the os version from the minimal base
+RUN source /os-release && \
+    mkdir /install_root \
+    && swupd os-install -V ${VERSION_ID} \
+    --path /install_root --statedir /swupd-state \
+    --bundles=os-core-update,libstdcpp,openssl,tzdata,fonts-basic,iproute2,sqlite,git,curl,sysadmin-basic,libX11client,wget --no-boot-update
+    
+# For some Host OS configuration with redirect_dir on,
+# extra data are saved on the upper layer when the same
+# file exists on different layers. To minimize docker
+# image size, remove the overlapped files before copy.
+RUN mkdir /os_core_install
+COPY --from=clearlinux/os-core:latest / /os_core_install/
+RUN cd / && \
+    find os_core_install | sed -e 's/os_core_install/install_root/' | xargs rm -d &> /dev/null || true
+
+FROM clearlinux/os-core:latest
+
+COPY --from=builder /install_root /
+
+    
+RUN rm /usr/lib64/libz.*; \
+    rm -f /usr/lib64/pkgconfig/zlib.pc; \
+    rm -f /usr/include/zlib.h; \
+    rm -f /usr/include/zconf.h; \
+    rm -f /usr/include/zlib_name_mangling.h  
+COPY --from=builder /usr/local/lib/libz.* /usr/lib64/
+COPY --from=builder /usr/local/lib/pkgconfig/zlib.pc /usr/lib64/pkgconfig/
+COPY --from=builder /usr/local/include/zlib.h /usr/include/
+COPY --from=builder /usr/local/include/zconf.h /usr/include/
+COPY --from=builder /usr/local/include/zlib_name_mangling.h /usr/include/
+
+RUN rm -f /usr/lib64/libmimalloc.*; \
+    rm -rf /usr/lib64/mimalloc-*; \
+    rm -f /usr/lib64/pkgconfig/mimalloc.pc; \
+    rm -rf /usr/include/mimalloc-*
+COPY --from=builder /usr/local/lib64/libmimalloc.* /usr/lib64/
+COPY --from=builder /usr/local/lib64/mimalloc-* /usr/lib64/
+COPY --from=builder /usr/local/lib64/pkgconfig/mimalloc.pc /usr/lib64/pkgconfig/
+COPY --from=builder /usr/local/include/mimalloc-* /usr/include/
 
 ENV JAVA_HOME /opt/java/graalvm
 ENV PATH $JAVA_HOME/bin:$PATH
-
-# Default to UTF-8 file.encoding
-
-ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8'
-
-RUN apt-get update; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata curl wget ca-certificates fontconfig locales binutils lsof curl openssl git tar sqlite3 fontconfig libfreetype6 iproute2 libstdc++6 libmimalloc2.0; \
-    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen; \
-    locale-gen en_US.UTF-8; \
-    DEBIAN_FRONTEND=noninteractive apt-get upgrade -y; \
-    rm -rf /var/lib/apt/lists/*
-    
-RUN rm /lib/x86_64-linux-gnu/libz.*
-COPY --from=builder /usr/local/lib/libz.* /lib/x86_64-linux-gnu/ 
-COPY --from=builder /usr/local/lib/pkgconfig /usr/local/lib/pkgconfig
-COPY --from=builder /usr/local/include/zlib.h /usr/local/include/zlib.h
-COPY --from=builder /usr/local/include/zconf.h /usr/local/include/zconf.h
-COPY --from=builder /usr/local/include/zlib.h /usr/local/include/zlib.h
 
 ENV JAVA_VERSION jdk-21+35
 
@@ -60,12 +104,15 @@ RUN set -eux; \
 	      --no-same-owner \
 	  ; \
     rm -f /tmp/graalvm.tar.gz /tmp/graalvm.tar.gz.sha256 ${JAVA_HOME}/lib/src.zip; \
+    mkdir -p /etc/ld.so.conf.d; \
 # https://github.com/docker-library/openjdk/issues/331#issuecomment-498834472
     find "$JAVA_HOME/lib" -name '*.so' -exec dirname '{}' ';' | sort -u > /etc/ld.so.conf.d/docker-openjdk.conf; \
     ldconfig; \
 # https://github.com/docker-library/openjdk/issues/212#issuecomment-420979840
 # https://openjdk.java.net/jeps/341
     java -Xshare:dump;
+
+ENV LD_PRELOAD=usr/lib64/libmimalloc.so MIMALLOC_LARGE_OS_PAGES=1
 
 RUN echo Verifying install ...; \
     fileEncoding="$(echo 'System.out.println(System.getProperty("file.encoding"))' | jshell -s -)"; [ "$fileEncoding" = 'UTF-8' ]; rm -rf ~/.java; \
@@ -78,7 +125,7 @@ RUN echo Verifying install ...; \
 RUN useradd -d /home/container -m container
 
 USER container
-ENV USER=container HOME=/home/container LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2.0 MIMALLOC_LARGE_OS_PAGES=1 
+ENV USER=container HOME=/home/container
 WORKDIR /home/container
 
 COPY /entrypoint.sh /entrypoint.sh
