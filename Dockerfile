@@ -72,7 +72,7 @@ COPY --from=builder /usr/local/include/zlib.h /usr/local/include/zconf.h /usr/lo
 COPY --from=builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib64/pkgconfig/mimalloc.pc /usr/lib64/pkgconfig/
 
 ENV JAVA_HOME=/opt/java/graalvm
-ENV PATH=$JAVA_HOME/bin:$PATH JAVA_VERSION=jdk-21+35LD_PRELOAD=usr/lib64/libmimalloc.so MIMALLOC_LARGE_OS_PAGES=1
+ENV PATH=$JAVA_HOME/bin:$PATH JAVA_VERSION=jdk-21+35 LD_PRELOAD=usr/lib64/libmimalloc.so MIMALLOC_LARGE_OS_PAGES=1
 
 RUN set -eux; \
 	  curl -o /tmp/graalvm.tar.gz https://download.oracle.com/graalvm/21/latest/graalvm-jdk-21_linux-x64_bin.tar.gz; \
