@@ -76,7 +76,7 @@ RUN echo Verifying install ...; \
 RUN useradd -d /home/container -m container
 
 USER container
-ENV USER=container HOME=/home/container LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2.0
+ENV USER=container HOME=/home/container LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2.0 MIMALLOC_LARGE_OS_PAGES=1
 WORKDIR /home/container
 
 COPY /entrypoint.sh /entrypoint.sh
