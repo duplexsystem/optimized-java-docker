@@ -31,28 +31,28 @@ jobs:
     steps:
     
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
     # Install the cosign tool except on PR
     # https://github.com/sigstore/cosign-installer
     - name: Install cosign
       if: github.event_name != 'pull_request'
-      uses: sigstore/cosign-installer@v3.1.2
+      uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4
       with:
-        cosign-release: 'v2.1.1'
+        cosign-release: 'v2.2.2'
 
 
     # Set up BuildKit Docker container builder to be able to build
     # multi-platform images and export cache
     # https://github.com/docker/setup-buildx-action
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3.0.0
+      uses: docker/setup-buildx-action@0d103c3126aa41d772a8362f6aa67afac040f80c
 
     # Login against a Docker registry except on PR
     # https://github.com/docker/login-action
     - name: Log into registry ${{ env.REGISTRY }}
       if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3.0.0
+      uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
@@ -63,11 +63,11 @@ jobs:
     # https://github.com/docker/metadata-action
     - name: Extract Docker metadata
       id: meta
-      uses: docker/metadata-action@v5.0.0
+      uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
                 
-    - uses: ScribeMD/docker-cache@0.3.6
+    - uses: ScribeMD/docker-cache@e481e638abdb45e2fa30845305c387a544cc617f
       name: Cache Docker images
       with:
         key: docker-${{ runner.os }}
@@ -76,7 +76,7 @@ jobs:
     # https://github.com/docker/build-push-action
     - name: Build and push Docker image
       id: build-and-push
-      uses: docker/build-push-action@v5.0.0
+      uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56
       with:
         context: .
         push: ${{ github.event_name != 'pull_request' }}
