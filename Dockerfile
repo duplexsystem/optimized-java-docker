@@ -1,4 +1,8 @@
+ARG JDK_VERSION="21"
+
 FROM ubuntu:latest as builder
+
+LABEL maintainer="Zoë Gidiere <duplexsys@protonmail.com>"
 
 RUN apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends locales binutils; \
@@ -23,31 +27,29 @@ RUN cd /tmp/zlib-ng-zlib-ng-*; \
     make -j$(nproc); make install
 
 FROM ubuntu:latest
+ARG JDK_VERSION
 
-ENV JAVA_HOME /opt/java/graalvm
-ENV PATH $JAVA_HOME/bin:$PATH
+ENV JAVA_HOME=/opt/java/graalvm
+ENV PATH=$JAVA_HOME/bin:$PATH
 
 # Default to UTF-8 file.encoding
+ENV  LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8'
 
-ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8'
-
-RUN apt-get update; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata curl wget ca-certificates fontconfig locales binutils lsof curl openssl git tar sqlite3 fontconfig libfreetype6 iproute2 libstdc++6 libmimalloc2.0 git-lfs; \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata curl wget ca-certificates fontconfig locales binutils lsof curl openssl git tar sqlite3 libfreetype6 iproute2 libstdc++6 libmimalloc2.0 git-lfs; \
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen; \
     locale-gen en_US.UTF-8; \
     DEBIAN_FRONTEND=noninteractive apt-get upgrade -y; \
     rm -rf /var/lib/apt/lists/*
     
-RUN rm /lib/x86_64-linux-gnu/libz.*
+RUN rm /lib/x86_64-linux-gnu/libz.*;
 COPY --from=builder /usr/local/lib/libz.* /lib/x86_64-linux-gnu/
 COPY --from=builder /usr/local/include/zlib.h /usr/local/include/zconf.h /usr/local/include/zlib_name_mangling.h /usr/include/
 COPY --from=builder /usr/local/lib/pkgconfig/zlib.pc /usr/lib64/pkgconfig/
 
-ENV JAVA_VERSION jdk-21+35
-
 RUN set -eux; \
-	  wget -O /tmp/graalvm.tar.gz https://download.oracle.com/graalvm/21/latest/graalvm-jdk-21_linux-x64_bin.tar.gz; \
-	  wget -O /tmp/graalvm.tar.gz.sha256 https://download.oracle.com/graalvm/21/latest/graalvm-jdk-21_linux-x64_bin.tar.gz.sha256; \
+	  wget -O /tmp/graalvm.tar.gz https://download.oracle.com/graalvm/${JDK_VERSION}/latest/graalvm-jdk-${JDK_VERSION}_linux-x64_bin.tar.gz; \
+	  wget -O /tmp/graalvm.tar.gz.sha256 https://download.oracle.com/graalvm/${JDK_VERSION}/latest/graalvm-jdk-${JDK_VERSION}_linux-x64_bin.tar.gz.sha256; \
 	  ESUM=$(cat /tmp/graalvm.tar.gz.sha256); \
 	  echo "${ESUM} */tmp/graalvm.tar.gz" | sha256sum -c -; \
 	  mkdir -p "$JAVA_HOME"; \
@@ -59,6 +61,7 @@ RUN set -eux; \
 	  ; \
     rm -f /tmp/graalvm.tar.gz /tmp/graalvm.tar.gz.sha256 ${JAVA_HOME}/lib/src.zip; \
 # https://github.com/docker-library/openjdk/issues/331#issuecomment-498834472
+    JAVA_VERSION=$(sed -n '/^JAVA_VERSION="/{s///;s/"//;p;}' "$JAVA_HOME"/release); \
     find "$JAVA_HOME/lib" -name '*.so' -exec dirname '{}' ';' | sort -u > /etc/ld.so.conf.d/docker-openjdk.conf; \
     ldconfig; \
 # https://github.com/docker-library/openjdk/issues/212#issuecomment-420979840
