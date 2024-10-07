@@ -2,7 +2,8 @@ ARG JDK_VERSION="21"
 
 FROM ubuntu:latest as builder
 
-LABEL maintainer="Zoë Gidiere <duplexsys@protonmail.com>"
+
+
 
 RUN apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends locales binutils; \
@@ -29,6 +30,11 @@ RUN cd /tmp/zlib-ng-zlib-ng-*; \
 FROM ubuntu:latest
 ARG JDK_VERSION
 
+LABEL author="Zoë Gidiere" maintainer="duplexsys@protonmail.com"
+
+LABEL org.opencontainers.image.source="https://github.com/duplexsystem/optimized-java-yolk"
+LABEL org.opencontainers.image.licenses=MIT
+
 ENV JAVA_HOME=/opt/java/graalvm
 ENV PATH=$JAVA_HOME/bin:$PATH
 
@@ -36,7 +42,7 @@ ENV PATH=$JAVA_HOME/bin:$PATH
 ENV  LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8'
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata curl wget ca-certificates fontconfig locales binutils lsof curl openssl git tar sqlite3 libfreetype6 iproute2 libstdc++6 libmimalloc2.0 git-lfs; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata curl wget ca-certificates fontconfig locales binutils lsof curl openssl git tar sqlite3 libfreetype6 iproute2 libstdc++6 libmimalloc2.0 git-lfs tini zip unzip; \
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen; \
     locale-gen en_US.UTF-8; \
     DEBIAN_FRONTEND=noninteractive apt-get upgrade -y; \
@@ -76,11 +82,15 @@ RUN echo Verifying install ...; \
     java --version; \
     echo Complete.
 
-RUN useradd -d /home/container -m container
+## Setup user and working directory
+RUN         useradd -m -d /home/container -s /bin/bash container
+USER        container
+ENV         USER=container HOME=/home/container LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2 MIMALLOC_LARGE_OS_PAGES=1
+WORKDIR     /home/container
 
-USER container
-ENV USER=container HOME=/home/container LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2.0 MIMALLOC_LARGE_OS_PAGES=1
-WORKDIR /home/container
+STOPSIGNAL SIGINT
 
-COPY /entrypoint.sh /entrypoint.sh
-CMD [ "/bin/bash", "/entrypoint.sh" ] 
+COPY        --chown=container:container entrypoint.sh /entrypoint.sh
+RUN         chmod +x /entrypoint.sh
+ENTRYPOINT    ["/usr/bin/tini", "-g", "--"]
+CMD         ["/entrypoint.sh"]
