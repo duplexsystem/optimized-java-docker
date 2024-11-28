@@ -2,9 +2,6 @@ ARG JDK_VERSION="21"
 
 FROM ubuntu:latest as builder
 
-
-
-
 RUN apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends locales binutils; \
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen; \
